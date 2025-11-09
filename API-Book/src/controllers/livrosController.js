@@ -1,9 +1,9 @@
-import NaoEncontrado from "../erros/NaoEncontrado.js";
-import livros from "../models/Livro.js";
 
+import NaoEncontrado from "../erros/NaoEncontrado.js";
+import { livros } from "../models/index.js";
 class LivroController {
 
-  static listarLivros = async (req, res, next) => {
+  static listarLivros = async (_req, res, next) => {
     try {
       const livrosResultado = await livros.find()
         .populate("autor")
@@ -48,13 +48,13 @@ class LivroController {
   static atualizarLivro = async (req, res, next) => {
     try {
       const id = req.params.id;
-    
-      const livroResultado = await livros.findByIdAndUpdate(id, {$set: req.body});
+
+      const livroResultado = await livros.findByIdAndUpdate(id, { $set: req.body });
 
       console.log(livroResultado);
-    
+
       if (livroResultado !== null) {
-        res.status(200).send({message: "Livro atualizado com sucesso"});
+        res.status(200).send({ message: "Livro atualizado com sucesso" });
       } else {
         next(new NaoEncontrado("Id do livro não localizado."));
       }
@@ -70,9 +70,9 @@ class LivroController {
       const livroResultado = await livros.findByIdAndDelete(id);
 
       console.log(livroResultado);
-      
+
       if (livroResultado !== null) {
-        res.status(200).send({message: "Livro removido com sucesso"});
+        res.status(200).send({ message: "Livro removido com sucesso" });
       } else {
         next(new NaoEncontrado("Id do livro não localizado."));
       }
@@ -81,17 +81,42 @@ class LivroController {
     }
   };
 
-  static listarLivroPorEditora = async (req, res, next) => {
+  static listarLivroPorFiltro = async (req, res, next) => {
     try {
-      const editora = req.query.editora;
-      
-      const livrosResultado = await livros.find({"editora": editora});
+
+      console.log('req.query =', req.query);
+      const busca = processaBusca(req.query);
+      console.log('busca =', JSON.stringify(busca, null, 2));
+
+      // // const regex = new RegExp(titulo, "i");
+
+      const livrosResultado = await livros.find(busca);
 
       res.status(200).send(livrosResultado);
     } catch (erro) {
       next(erro);
     }
   };
-}
 
+
+
+}
+function processaBusca(parametros) {
+
+  const { editora, titulo, minPaginas, maxPaginas } = parametros;
+
+  const busca = {};
+
+  if (editora) busca.editora = editora;
+  if (titulo) busca.titulo = { $regex: titulo, $options: "i" }
+
+  if (minPaginas || maxPaginas) busca.numeroPaginas = {};
+
+  //gte = Greater Than or Equal = Maior ou igual que.
+  if (minPaginas) busca.numeroPaginas.$gte = Number(minPaginas);
+  //lte = Less Than or Equal = Menor ou igual que.
+  if (maxPaginas) busca.numeroPaginas.$lte = Number(maxPaginas);
+
+  return busca;
+}
 export default LivroController;
