@@ -1,15 +1,18 @@
 
 import NaoEncontrado from "../erros/NaoEncontrado.js";
-import { livros } from "../models/index.js";
+import { autores, livros } from "../models/index.js";
+
 class LivroController {
+
 
   static listarLivros = async (_req, res, next) => {
     try {
-      const livrosResultado = await livros.find()
-        .populate("autor")
-        .exec();
+      const buscaLivros = livros.find();
 
-      res.status(200).json(livrosResultado);
+      _req.resultado = buscaLivros;
+
+
+      next();
     } catch (erro) {
       next(erro);
     }
@@ -84,15 +87,20 @@ class LivroController {
   static listarLivroPorFiltro = async (req, res, next) => {
     try {
 
-      console.log('req.query =', req.query);
-      const busca = processaBusca(req.query);
-      console.log('busca =', JSON.stringify(busca, null, 2));
+      const busca = await processaBusca(req.query);
 
-      // // const regex = new RegExp(titulo, "i");
+      if (busca != null) {
 
-      const livrosResultado = await livros.find(busca);
+        const livrosResultado = livros
+          .find(busca)
+          .populate("autor");
 
-      res.status(200).send(livrosResultado);
+        req.resultado = livrosResultado;
+        
+        next();
+      } else {
+        res.status(200).send([]);
+      }
     } catch (erro) {
       next(erro);
     }
@@ -101,11 +109,11 @@ class LivroController {
 
 
 }
-function processaBusca(parametros) {
+async function processaBusca(parametros) {
 
-  const { editora, titulo, minPaginas, maxPaginas } = parametros;
+  const { editora, titulo, minPaginas, maxPaginas, nomeAutor } = parametros;
 
-  const busca = {};
+  let busca = {};
 
   if (editora) busca.editora = editora;
   if (titulo) busca.titulo = { $regex: titulo, $options: "i" }
@@ -116,6 +124,18 @@ function processaBusca(parametros) {
   if (minPaginas) busca.numeroPaginas.$gte = Number(minPaginas);
   //lte = Less Than or Equal = Menor ou igual que.
   if (maxPaginas) busca.numeroPaginas.$lte = Number(maxPaginas);
+
+  if (nomeAutor) {
+    const autor = await autores.findOne({ nome: nomeAutor });
+    if (autor != null) {
+
+      busca.autor = autor.id;
+
+    } else {
+      busca = null
+    }
+
+  }
 
   return busca;
 }
